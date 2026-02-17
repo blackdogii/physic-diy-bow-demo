@@ -2,151 +2,154 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>AI 數位弦力弓 - 物理實驗分析儀</title>
+    <title>AI 數位弦力弓 - 智慧校準分析儀</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #2c3e50; color: white; margin: 0; padding: 20px; }
-        .dashboard { margin: 10px auto; width: 90%; max-width: 800px; background: #34495e; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #1a1a2e; color: white; margin: 0; padding: 20px; }
+        .dashboard { margin: 10px auto; width: 90%; max-width: 800px; background: #16213e; padding: 20px; border-radius: 15px; border: 1px solid #0f3460; }
         .btn { padding: 12px 25px; margin: 5px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        .btn-connect { background: #e67e22; color: white; }
-        .btn-calib { background: #27ae60; color: white; }
-        .data-panel { display: flex; justify-content: space-around; margin: 20px 0; background: #2c3e50; padding: 15px; border-radius: 10px; }
-        .data-item { flex: 1; }
-        .value-large { font-size: 2em; color: #f1c40f; display: block; }
-        .label { font-size: 0.9em; color: #bdc3c7; }
-        #p5-container { margin-top: 20px; border: 1px solid #7f8c8d; display: inline-block; border-radius: 5px; overflow: hidden; }
+        .btn-connect { background: #e94560; color: white; }
+        .btn-calib { background: #0f3460; color: #e94560; border: 1px solid #e94560; }
+        .data-panel { display: flex; justify-content: space-around; margin: 20px 0; background: #0f3460; padding: 15px; border-radius: 10px; }
+        .value-large { font-size: 2.2em; color: #e94560; display: block; font-family: 'Courier New', monospace; }
+        .label { font-size: 0.85em; color: #8892b0; text-transform: uppercase; letter-spacing: 1px; }
+        #p5-container { margin-top: 20px; border-radius: 10px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
-    <h1>AI 數位弦力弓：物理數據採集中心</h1>
+    <h1>🏹 弦力弓物理分析系統 <small style="font-size: 0.4em; vertical-align: middle;">(Auto-Zeroing Version)</small></h1>
     
     <div class="dashboard">
-        <div id="status">狀態：等待設備連線...</div>
+        <div id="status">等待藍牙連線...</div>
         <button id="btnConnect" class="btn btn-connect">連線智慧弓 (BLE)</button>
         
         <div class="data-panel">
             <div class="data-item">
-                <span class="label">當前原始數值 (ADC)</span>
-                <span id="rawDisplay" class="value-large">----</span>
+                <span class="label">ADC 原始讀值</span>
+                <span id="rawDisplay" class="value-large">0000</span>
             </div>
             <div class="data-item">
-                <span class="label">正規化拉力值 (%)</span>
+                <span class="label">數位濾波後讀值</span>
+                <span id="filterDisplay" class="value-large">0000</span>
+            </div>
+            <div class="data-item">
+                <span class="label">標準化張力 (%)</span>
                 <span id="tensionDisplay" class="value-large">0%</span>
             </div>
         </div>
 
-        <div style="border-top: 1px solid #5d6d7e; padding-top: 15px;">
-            <span class="label">校準參考值：</span>
-            <button id="btnMin" class="btn btn-calib">設定靜止 (0%)</button>
-            <button id="btnMax" class="btn btn-calib">設定滿弓 (100%)</button>
-            <div style="margin-top: 10px;">
-                <span class="label">標定範圍：[ 靜止: <span id="vMinLabel">1000</span> | 滿弓: <span id="vMaxLabel">3000</span> ] ADC 單位</span>
-            </div>
+        <div style="border-top: 1px solid #0f3460; padding-top: 15px;">
+            <button id="btnMax" class="btn btn-calib">設定滿弓參考點</button>
+            <p class="label" style="margin-top:10px;">
+                系統已啟動 [動態歸零補償]：靜止點將自動追蹤數據漂移
+            </p>
         </div>
     </div>
 
     <div id="p5-container"></div>
 
     <script>
-        let rawData = 0, normalizedValue = 0;
-        let vMin = 1000, vMax = 3000;
-        let history = new Array(300).fill(0); // 增加緩存以顯示更長的時間軸
-        let sampleRate = 20; // 與 ESP32 的延遲時間一致 (ms)
+        let rawData = 0, filteredData = 0, tension = 0;
+        let vMin = 0; // 靜止基準 (Auto-zeroing 會自動更新此值)
+        let vMax = 1500; // 滿弓基準 (拉弓時變小，故此值應小於 vMin)
+        
+        let rawHistory = new Array(10).fill(0); // 濾波緩衝
+        let graphHistory = new Array(300).fill(0); // 繪圖緩衝
+        
+        let lastStableTime = Date.now();
+        let isFirstData = true;
 
-        // Web Bluetooth 連線
+        // 藍牙連線與數據接收
         document.getElementById('btnConnect').onclick = async () => {
             try {
-                const device = await navigator.bluetooth.requestDevice({
-                    filters: [{ services: [0xFFE0] }]
-                });
+                const device = await navigator.bluetooth.requestDevice({ filters: [{ services: [0xFFE0] }] });
                 const server = await device.gatt.connect();
                 const service = await server.getPrimaryService(0xFFE0);
                 const char = await service.getCharacteristic(0xFFE1);
                 
-                document.getElementById('status').innerText = "狀態：已連線 (" + device.name + ")";
+                document.getElementById('status').innerText = "✅ 已連線：" + device.name;
                 char.startNotifications();
                 char.addEventListener('characteristicvaluechanged', (e) => {
                     const decoder = new TextDecoder();
                     rawData = parseInt(decoder.decode(e.target.value));
-                    document.getElementById('rawDisplay').innerText = rawData;
-                    
-                    // 物理建模計算
-                    normalizedValue = ((rawData - vMin) / (vMax - vMin)) * 100;
-                    normalizedValue = Math.max(0, Math.min(100, normalizedValue));
-                    document.getElementById('tensionDisplay').innerText = Math.round(normalizedValue) + "%";
+                    processPhysicsData(rawData);
                 });
-            } catch (err) { document.getElementById('status').innerText = "狀態：連線失敗"; }
+            } catch (err) { document.getElementById('status').innerText = "❌ 連線失敗"; }
         };
 
-        // 校準控制
-        document.getElementById('btnMin').onclick = () => { 
-            vMin = rawData; 
-            document.getElementById('vMinLabel').innerText = vMin;
-        };
-        document.getElementById('btnMax').onclick = () => { 
-            vMax = rawData; 
-            document.getElementById('vMaxLabel').innerText = vMax;
-        };
+        function processPhysicsData(raw) {
+            // 1. 移動平均濾波 (Moving Average)
+            rawHistory.push(raw);
+            rawHistory.shift();
+            filteredData = rawHistory.reduce((a, b) => a + b) / rawHistory.length;
+            document.getElementById('rawDisplay').innerText = raw;
+            document.getElementById('filterDisplay').innerText = Math.round(filteredData);
 
-        // p5.js 物理圖表繪製
+            if (isFirstData) { vMin = filteredData; isFirstData = false; }
+
+            // 2. 動態歸零演算法 (Auto-Zeroing)
+            // 如果讀值比當前 vMin 還大 (代表更鬆) 或微幅變動，緩慢更新基準
+            if (Math.abs(filteredData - vMin) < 20) {
+                vMin = vMin * 0.95 + filteredData * 0.05; // 權重更新，平滑漂移
+            } else if (filteredData > vMin) {
+                vMin = filteredData; // 如果出現更大的值，直接更新零點
+            }
+
+            // 3. 標準化計算 (解決反向問題)
+            // 靜止(大) -> vMin, 滿弓(小) -> vMax
+            tension = ((vMin - filteredData) / (vMin - vMax)) * 100;
+            tension = Math.max(0, Math.min(100, tension));
+            
+            document.getElementById('tensionDisplay').innerText = Math.round(tension) + "%";
+        }
+
+        document.getElementById('btnMax').onclick = () => { vMax = filteredData; alert("滿弓基準已設定：" + Math.round(vMax)); };
+
+        // p5.js 科學圖表繪製
         function setup() {
-            let cnv = createCanvas(700, 350);
+            let cnv = createCanvas(750, 350);
             cnv.parent('p5-container');
         }
 
         function draw() {
-            background(30, 39, 46);
-            history.push(normalizedValue);
-            history.shift();
+            background(26, 26, 46);
+            graphHistory.push(tension);
+            graphHistory.shift();
 
-            drawGrid();
+            drawAxis();
 
-            // 繪製拉力曲線
-            stroke(241, 194, 15);
-            strokeWeight(2.5);
+            // 繪製波形
+            stroke(233, 69, 96);
+            strokeWeight(3);
             noFill();
             beginShape();
-            for (let i = 0; i < history.length; i++) {
-                // 水平解析度：每個樣本間隔 2.3 像素
-                let x = 60 + (i * 2.1); 
-                let y = height - 50 - (history[i] * 2.5);
+            for (let i = 0; i < graphHistory.length; i++) {
+                let x = 70 + (i * 2.2); 
+                let y = height - 50 - (graphHistory[i] * 2.5);
                 vertex(x, y);
             }
             endShape();
         }
 
-        function drawGrid() {
-            let chartLeft = 60;
+        function drawAxis() {
+            let chartLeft = 70;
             let chartBottom = height - 50;
-            let chartTop = 50;
-            let chartWidth = width - 80;
-            let chartHeight = 250;
-
-            // 垂直坐標軸 (拉力 %)
-            stroke(127, 140, 141);
+            stroke(83, 92, 145);
             strokeWeight(1);
-            line(chartLeft, chartBottom, chartLeft, chartTop);
             
-            fill(189, 195, 199);
-            noStroke();
-            textAlign(RIGHT, CENTER);
-            textSize(12);
+            // 標示格線與百分比
             for (let i = 0; i <= 100; i += 25) {
                 let y = chartBottom - (i * 2.5);
+                line(chartLeft, y, width - 30, y);
+                fill(142, 148, 171);
+                noStroke();
+                textSize(12);
+                textAlign(RIGHT, CENTER);
                 text(i + "%", chartLeft - 10, y);
-                stroke(52, 73, 94);
-                line(chartLeft, y, width - 20, y); // 水平網格
             }
-
-            // 水平坐標軸 (時間)
-            stroke(127, 140, 141);
-            line(chartLeft, chartBottom, width - 20, chartBottom);
-            textAlign(CENTER, TOP);
-            text("時間軸 (相對)", chartLeft + chartWidth/2, chartBottom + 15);
             
-            // 單位標示
             textAlign(LEFT, BOTTOM);
-            text("張力百分比 (%)", chartLeft, chartTop - 10);
+            text("弓弦張力 (Normalized Tension)", chartLeft, 40);
         }
     </script>
 </body>
