@@ -34,7 +34,10 @@
         document.getElementById('btnConnect').onclick = async () => {
             try {
                 const device = await navigator.bluetooth.requestDevice({
-                    filters: [{ services: [0xFFE0] }]
+                    filters: [
+                        { services: ['0000ffe0-0000-1000-8000-00805f9b34fb'] }, // 16-bit FFE0 的標準格式
+                        { namePrefix: 'Bow_' } // 或是用名稱前綴搜尋
+                    ]
                 });
                 const server = await device.gatt.connect();
                 const service = await server.getPrimaryService(0xFFE0);
@@ -85,3 +88,4 @@
     </script>
 </body>
 </html>
+
