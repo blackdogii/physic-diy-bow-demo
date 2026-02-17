@@ -1,491 +1,87 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>量子實驗室：清晰干涉版</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <title>AI 數位弦力弓 - 物理實驗介面</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
     <style>
-        :root {
-            --bg-dark: #0b0e14;
-            --panel-bg: #151b25;
-            --accent: #00f2ff; /* 螢光青 */
-            --danger: #ff2a6d;
-            --text: #e0e6ed;
-        }
-
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: var(--bg-dark);
-            color: var(--text);
-            font-family: 'Segoe UI', system-ui, sans-serif;
-            overflow: hidden; /* 防止捲軸 */
-        }
-
-        .container {
-            display: grid;
-            grid-template-columns: 340px 1fr;
-            height: 100vh;
-        }
-
-        /* Sidebar */
-        .controls {
-            background: var(--panel-bg);
-            padding: 25px;
-            border-right: 1px solid #2a3441;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 18px;
-        }
-
-        h1 { margin: 0 0 10px 0; color: var(--accent); font-size: 1.6rem; letter-spacing: 1px; }
-        h2 { font-size: 1rem; color: #6c7a89; border-bottom: 1px solid #2a3441; padding-bottom: 5px; margin-top: 10px; text-transform: uppercase; letter-spacing: 1px;}
-
-        .control-group { position: relative; }
-        .label-row { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px; color: #aab2bd; }
-        .value-display { font-family: monospace; color: var(--accent); font-size: 0.95rem; }
-
-        input[type="range"] {
-            width: 100%; height: 4px; background: #2a3441; border-radius: 2px;
-            outline: none; -webkit-appearance: none; cursor: pointer;
-        }
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none; width: 14px; height: 14px;
-            background: var(--text); border-radius: 50%;
-            transition: 0.2s;
-        }
-        input[type="range"]:hover::-webkit-slider-thumb { background: var(--accent); transform: scale(1.2); }
-
-        /* Toggles */
-        .toggle-row {
-            display: flex; justify-content: space-between; align-items: center;
-            background: rgba(255,255,255,0.03); padding: 12px; border-radius: 8px;
-            border: 1px solid transparent; transition: 0.3s;
-        }
-        .toggle-row.active-danger { border-color: var(--danger); background: rgba(255, 42, 109, 0.1); }
-
-        .toggle-switch { position: relative; width: 40px; height: 22px; }
-        .toggle-switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #2a3441; transition: .4s; border-radius: 22px; }
-        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--danger); }
-        input:checked + .slider:before { transform: translateX(18px); }
-
-        /* Main View */
-        .main-display {
-            padding: 20px;
-            display: grid;
-            grid-template-rows: 2fr 1fr; /* 上面大，下面圖表小 */
-            gap: 20px;
-            background: radial-gradient(circle at center, #1a202c 0%, #0b0e14 100%);
-        }
-
-        .canvas-wrapper {
-            background: black;
-            border-radius: 12px;
-            border: 1px solid #2a3441;
-            position: relative;
-            box-shadow: 0 0 30px rgba(0,0,0,0.5);
-            overflow: hidden;
-        }
-
-        .overlay-label {
-            position: absolute; top: 15px; left: 20px;
-            background: rgba(0,0,0,0.7); color: #888;
-            padding: 4px 10px; border-radius: 4px; font-size: 0.8rem;
-            pointer-events: none; border: 1px solid #333;
-        }
-
-        .btn {
-            background: #2a3441; color: white; border: none; padding: 12px;
-            border-radius: 6px; cursor: pointer; font-weight: 600; width: 100%; transition: 0.2s;
-        }
-        .btn:hover { background: #3b4a5d; }
-        .btn.primary { background: var(--accent); color: #0b0e14; }
-        .btn.primary:hover { filter: brightness(1.1); }
-
-        /* Status Bar */
-        .status-box {
-            font-size: 0.85rem; line-height: 1.5; color: #aab2bd;
-            background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px;
-        }
+        body { font-family: 'Segoe UI', sans-serif; text-align: center; background: #2c3e50; color: white; }
+        .dashboard { margin: 20px auto; width: 80%; max-width: 600px; background: #34495e; padding: 20px; border-radius: 15px; }
+        .btn { padding: 12px 25px; margin: 10px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-connect { background: #e67e22; color: white; }
+        .btn-calib { background: #27ae60; color: white; }
+        #status { color: #f1c40f; margin-bottom: 10px; }
     </style>
 </head>
 <body>
-
-<div class="container">
-    <div class="controls">
-        <h1>QUANTUM LAB</h1>
-        
-        <div class="control-group">
-            <button class="btn primary" id="btnPause">暫停模擬</button>
-            <button class="btn" id="btnClear" style="margin-top:10px;">重置數據</button>
-        </div>
-
-        <h2>實驗設定</h2>
-        <div class="toggle-row">
-            <span>狹縫模式</span>
-            <select id="slitMode" style="background:#2a3441; color:white; border:none; padding:5px; border-radius:4px; outline:none;">
-                <option value="double">雙縫 (Double)</option>
-                <option value="left">僅左縫 (Left)</option>
-                <option value="right">僅右縫 (Right)</option>
-            </select>
-        </div>
-
-        <div class="toggle-row" id="observerRow">
-            <div>
-                <span style="display:block;">探測器 (觀測者)</span>
-                <span style="font-size:0.75rem; opacity:0.6;">開啟後干涉消失</span>
-            </div>
-            <label class="toggle-switch">
-                <input type="checkbox" id="observerToggle">
-                <span class="slider"></span>
-            </label>
-        </div>
-
-        <h2>參數控制</h2>
-        <div class="control-group">
-            <div class="label-row"><span>狹縫間距 (d)</span><span class="value-display" id="valDist">0.20 mm</span></div>
-            <input type="range" id="slDist" min="0.1" max="0.8" step="0.01" value="0.2">
-        </div>
-
-        <div class="control-group">
-            <div class="label-row"><span>狹縫寬度 (a)</span><span class="value-display" id="valWidth">0.05 mm</span></div>
-            <input type="range" id="slWidth" min="0.01" max="0.2" step="0.01" value="0.05">
-        </div>
-
-        <div class="control-group">
-            <div class="label-row"><span>波長 (Color)</span><span class="value-display" id="valWave" style="color:#0f0">532 nm</span></div>
-            <input type="range" id="slWave" min="400" max="700" step="5" value="532">
-        </div>
-
-        <div class="control-group">
-            <div class="label-row"><span>螢幕距離 (L)</span><span class="value-display" id="valL">1.0 m</span></div>
-            <input type="range" id="slL" min="0.5" max="2.0" step="0.1" value="1.0">
-        </div>
-
-        <div class="control-group">
-            <div class="label-row"><span>粒子速率</span><span class="value-display">Auto</span></div>
-            <input type="range" id="slRate" min="10" max="1000" step="10" value="200">
-        </div>
-
-        <div class="status-box" id="statusText">
-            初始化中...
-        </div>
+    <h1>AI 數位弦力弓：數據採集中心</h1>
+    <div class="dashboard">
+        <div id="status">狀態：尚未連線</div>
+        <button id="btnConnect" class="btn btn-connect">連線至智慧弓 (BLE)</button>
+        <br>
+        <button id="btnMin" class="btn btn-calib">設為靜止狀態 (0%)</button>
+        <button id="btnMax" class="btn btn-calib">設為滿弓狀態 (100%)</button>
+        <h2 id="tensionDisplay">拉力值：0%</h2>
     </div>
+    <div id="p5-container"></div>
 
-    <div class="main-display">
-        <div class="canvas-wrapper">
-            <div class="overlay-label">屏幕視圖 (Screen View) - 混合渲染</div>
-            <canvas id="simCanvas"></canvas>
-        </div>
+    <script>
+        let rawData = 0, normalizedValue = 0;
+        let vMin = 1000, vMax = 3000; // 預設參考值
+        let history = new Array(200).fill(0);
 
-        <div class="canvas-wrapper" style="border: 1px solid #333;">
-            <div class="overlay-label">強度分佈 (Intensity Distribution)</div>
-            <canvas id="chartCanvas"></canvas>
-        </div>
-    </div>
-</div>
-
-<script>
-    // --- 核心設定 ---
-    const state = {
-        running: true,
-        d: 0.20,      // mm (預設變小，讓條紋更寬)
-        a: 0.05,      // mm
-        L: 1.0,       // m
-        lambda: 532,  // nm
-        rate: 200,
-        mode: 'double', 
-        observer: false,
-        particles: [],
-        histogram: new Array(300).fill(0), // 提高解析度
-        maxCount: 1,
-        // 關鍵參數：模擬螢幕的物理高度 (公尺)
-        // 設定為 0.05 (5公分)，這相當於把鏡頭拉近了 3 倍！
-        screenHeightPhysical: 0.05 
-    };
-
-    // --- DOM ---
-    const cvs = document.getElementById('simCanvas');
-    const ctx = cvs.getContext('2d'); // 移除 alpha: false 以支援混合
-    const chartCtx = document.getElementById('chartCanvas').getContext('2d');
-    
-    // UI References
-    const ui = {
-        dist: { el: document.getElementById('slDist'), val: document.getElementById('valDist') },
-        width: { el: document.getElementById('slWidth'), val: document.getElementById('valWidth') },
-        wave: { el: document.getElementById('slWave'), val: document.getElementById('valWave') },
-        L: { el: document.getElementById('slL'), val: document.getElementById('valL') },
-        rate: document.getElementById('slRate'),
-        mode: document.getElementById('slitMode'),
-        observer: document.getElementById('observerToggle'),
-        observerRow: document.getElementById('observerRow'),
-        status: document.getElementById('statusText'),
-        pause: document.getElementById('btnPause'),
-        clear: document.getElementById('btnClear')
-    };
-
-    // --- Chart.js ---
-    const analysisChart = new Chart(chartCtx, {
-        type: 'line', // 用 Line 來畫填滿區域比較快
-        data: {
-            labels: new Array(300).fill(''),
-            datasets: [
-                {
-                    label: '理論強度',
-                    data: [],
-                    borderColor: 'rgba(255, 255, 255, 0.5)',
-                    borderWidth: 1,
-                    pointRadius: 0,
-                    borderDash: [5, 5],
-                    fill: false,
-                    tension: 0.4
-                },
-                {
-                    label: '實驗統計 (粒子累積)',
-                    data: [],
-                    backgroundColor: 'rgba(0, 242, 255, 0.2)',
-                    borderColor: '#00f2ff',
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    fill: true,
-                    tension: 0.2
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: false,
-            interaction: { intersect: false, mode: 'index' },
-            scales: {
-                x: { display: false },
-                y: { display: false, min: 0 }
-            },
-            plugins: { legend: { display: true, labels: { color: '#888' } } }
-        }
-    });
-
-    // --- 物理計算 ---
-
-    function getWavelengthColor(nm, alpha=1) {
-        let r=0, g=0, b=0;
-        if(nm>=380 && nm<440){ r=-(nm-440)/60; g=0; b=1; }
-        else if(nm>=440 && nm<490){ r=0; g=(nm-440)/50; b=1; }
-        else if(nm>=490 && nm<510){ r=0; g=1; b=-(nm-510)/20; }
-        else if(nm>=510 && nm<580){ r=(nm-510)/70; g=1; b=0; }
-        else if(nm>=580 && nm<645){ r=1; g=-(nm-645)/65; b=0; }
-        else if(nm>=645 && nm<=750){ r=1; g=0; b=0; }
-        return `rgba(${r*255},${g*255},${b*255},${alpha})`;
-    }
-
-    const sinc = (x) => (Math.abs(x) < 1e-9) ? 1 : Math.sin(x) / x;
-
-    function calculateIntensity(yPos) {
-        // yPos 是距離中心的公尺數
-        const k = (2 * Math.PI) / (state.lambda * 1e-9);
-        const d = state.d * 1e-3;
-        const a = state.a * 1e-3;
-        const L = state.L;
-        
-        // 嚴謹幾何：atan 取得角度
-        const theta = Math.atan(yPos / L);
-        const sinTheta = Math.sin(theta);
-        
-        // 單縫繞射項 (Envelope)
-        const beta = (k * a * sinTheta) / 2;
-        const diffraction = Math.pow(sinc(beta), 2);
-
-        // 雙縫干涉項
-        const alpha = (k * d * sinTheta) / 2;
-        
-        if (state.mode !== 'double') {
-            return diffraction; // 單縫只有繞射
-        } else if (state.observer) {
-            return diffraction; // 觀測導致干涉消失 (簡化模型：兩強度相加約等於繞射包絡)
-        } else {
-            return Math.pow(Math.cos(alpha), 2) * diffraction; // 標準雙縫
-        }
-    }
-
-    // --- 渲染循環 ---
-
-    function update() {
-        if (!state.running) return requestAnimationFrame(update);
-
-        const w = cvs.width;
-        const h = cvs.height;
-
-        // 1. 繪製背景 (Hybrid Rendering - 這是讓條紋清晰的關鍵)
-        // 我們先畫一層淡淡的「理論波形」，這樣即使粒子不夠，肉眼也能看到條紋
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, w, h); // 清空
-
-        // 繪製背景波形 (Background Wave)
-        const bgData = ctx.createImageData(w, h);
-        const rgb = getWavelengthColor(state.lambda).match(/[\d.]+/g);
-        const R = parseInt(rgb[0]), G = parseInt(rgb[1]), B = parseInt(rgb[2]);
-        
-        // 為了效能，我們只算一條垂直線的強度，然後橫向填滿
-        for (let y = 0; y < h; y++) {
-            const yMeters = ((y / h) - 0.5) * state.screenHeightPhysical;
-            // 背景強度稍微調暗 (0.2)，當作底色
-            const intensity = calculateIntensity(yMeters) * 0.3; 
-            
-            // 填滿這一整行
-            const alphaVal = Math.floor(intensity * 255);
-            if (alphaVal > 0) {
-                for (let x = 0; x < w; x++) {
-                    const idx = (y * w + x) * 4;
-                    bgData.data[idx] = R;
-                    bgData.data[idx+1] = G;
-                    bgData.data[idx+2] = B;
-                    bgData.data[idx+3] = alphaVal;
-                }
+        // Web Bluetooth 連線邏輯
+        document.getElementById('btnConnect').onclick = async () => {
+            try {
+                const device = await navigator.bluetooth.requestDevice({
+                    filters: [{ services: [0xFFE0] }]
+                });
+                const server = await device.gatt.connect();
+                const service = await server.getPrimaryService(0xFFE0);
+                const char = await service.getCharacteristic(0xFFE1);
+                
+                document.getElementById('status').innerText = "狀態：已連線 (" + device.name + ")";
+                
+                char.startNotifications();
+                char.addEventListener('characteristicvaluechanged', (e) => {
+                    const decoder = new TextDecoder();
+                    rawData = parseInt(decoder.decode(e.target.value));
+                    
+                    // 核心物理建模：數據正規化
+                    normalizedValue = ((rawData - vMin) / (vMax - vMin)) * 100;
+                    normalizedValue = Math.max(0, Math.min(100, normalizedValue));
+                    
+                    document.getElementById('tensionDisplay').innerText = "拉力值：" + Math.round(normalizedValue) + "%";
+                });
+            } catch (err) {
+                console.error("連線失敗", err);
             }
+        };
+
+        // 校準功能：解決感測器個體差異
+        document.getElementById('btnMin').onclick = () => { vMin = rawData; alert("已設定靜止基準"); };
+        document.getElementById('btnMax').onclick = () => { vMax = rawData; alert("已設定滿弓基準"); };
+
+        // p5.js 視覺化呈現
+        function setup() {
+            let cnv = createCanvas(600, 200);
+            cnv.parent('p5-container');
         }
-        ctx.putImageData(bgData, 0, 0);
 
-        // 2. 粒子模擬 (Particle Simulation)
-        const particlesPerFrame = Math.floor(state.rate / 2) + 1;
-        
-        // 疊加模式讓粒子看起來更亮
-        ctx.globalCompositeOperation = 'lighter'; 
-        ctx.fillStyle = getWavelengthColor(state.lambda, 0.8); // 粒子亮一點
+        function draw() {
+            background(52, 73, 94);
+            history.push(normalizedValue);
+            history.shift();
 
-        for(let i=0; i<particlesPerFrame; i++) {
-            const randY_px = Math.random() * h;
-            const yMeters = ((randY_px / h) - 0.5) * state.screenHeightPhysical;
-            const prob = calculateIntensity(yMeters);
-            
-            if (Math.random() < prob) {
-                // 畫粒子
-                const x = Math.random() * w;
-                // 畫一個小十字或小點，增加質感
-                ctx.fillRect(x, randY_px, 2, 2);
-
-                // 統計
-                state.particles.push(1); // 只計數用，不存位置以省記憶體
-                const binIdx = Math.floor((randY_px / h) * 300);
-                if(binIdx >=0 && binIdx < 300) {
-                    state.histogram[binIdx]++;
-                    if(state.histogram[binIdx] > state.maxCount) state.maxCount = state.histogram[binIdx];
-                }
+            stroke(241, 194, 15);
+            strokeWeight(3);
+            noFill();
+            beginShape();
+            for (let i = 0; i < history.length; i++) {
+                vertex(i * 3, height - (history[i] * 1.5) - 20);
             }
+            endShape();
         }
-        ctx.globalCompositeOperation = 'source-over'; // 恢復
-
-        // 3. 繪製標尺 (1 cm)
-        const pxPerCm = (h / state.screenHeightPhysical) * 0.01;
-        ctx.fillStyle = 'white';
-        ctx.fillRect(20, h - 20, 2, -pxPerCm);
-        ctx.fillText('1 cm', 25, h - 20 - pxPerCm/2 + 4);
-
-        // 4. 更新圖表 (每 5 幀)
-        if (state.particles.length % 5 === 0) {
-            updateChart();
-        }
-
-        requestAnimationFrame(update);
-    }
-
-    function updateChart() {
-        // 理論數據
-        const theoryData = [];
-        const steps = 300;
-        for(let i=0; i<steps; i++) {
-            const yMeters = ((i/steps)-0.5) * state.screenHeightPhysical;
-            theoryData.push(calculateIntensity(yMeters));
-        }
-
-        // 實驗數據 (正規化)
-        const expData = state.histogram.map(v => state.maxCount ? v/state.maxCount : 0);
-
-        analysisChart.data.datasets[0].data = theoryData;
-        analysisChart.data.datasets[1].data = expData;
-        analysisChart.update('none');
-    }
-
-    // --- 交互邏輯 ---
-
-    function resetData() {
-        state.particles = [];
-        state.histogram.fill(0);
-        state.maxCount = 1;
-        updateChart();
-    }
-
-    function updateUIParams() {
-        // 更新數值顯示
-        ui.dist.val.textContent = state.d.toFixed(2) + " mm";
-        ui.width.val.textContent = state.a.toFixed(2) + " mm";
-        ui.wave.val.textContent = state.lambda + " nm";
-        ui.wave.val.style.color = getWavelengthColor(state.lambda);
-        ui.L.val.textContent = state.L.toFixed(1) + " m";
-        
-        // 更新狀態文字
-        let modeText = "";
-        if(state.mode !== 'double') modeText = "單縫衍射 (Diffraction Only)";
-        else if(state.observer) modeText = "干涉消失 (Collapsed)";
-        else modeText = "雙縫干涉 (Interference)";
-        
-        ui.status.innerHTML = `模式: <strong style="color:var(--accent)">${modeText}</strong> | 視野高度: 5 cm (已縮放)`;
-        
-        // 防呆
-        if(state.a >= state.d) {
-            state.a = state.d - 0.01;
-            ui.width.el.value = state.a;
-            updateUIParams(); // 遞迴更新顯示
-        }
-        
-        // 特效
-        if(state.observer) ui.observerRow.classList.add('active-danger');
-        else ui.observerRow.classList.remove('active-danger');
-
-        resetData();
-    }
-
-    // Event Listeners
-    ui.dist.el.addEventListener('input', e => { state.d = parseFloat(e.target.value); updateUIParams(); });
-    ui.width.el.addEventListener('input', e => { state.a = parseFloat(e.target.value); updateUIParams(); });
-    ui.wave.el.addEventListener('input', e => { state.lambda = parseInt(e.target.value); updateUIParams(); });
-    ui.L.el.addEventListener('input', e => { state.L = parseFloat(e.target.value); updateUIParams(); });
-    ui.rate.addEventListener('input', e => { state.rate = parseInt(e.target.value); });
-    
-    ui.mode.addEventListener('change', e => { 
-        state.mode = e.target.value; 
-        ui.observer.disabled = (state.mode !== 'double');
-        updateUIParams(); 
-    });
-    
-    ui.observer.addEventListener('change', e => { 
-        state.observer = e.target.checked; 
-        updateUIParams(); 
-    });
-
-    ui.pause.addEventListener('click', () => {
-        state.running = !state.running;
-        ui.pause.textContent = state.running ? "暫停模擬" : "繼續模擬";
-        if(state.running) update();
-    });
-    ui.clear.addEventListener('click', resetData);
-
-    // Init
-    function resize() {
-        const p = cvs.parentElement;
-        cvs.width = p.clientWidth;
-        cvs.height = p.clientHeight;
-        resetData();
-    }
-    window.addEventListener('resize', resize);
-    resize();
-    updateUIParams();
-    update();
-
-</script>
+    </script>
 </body>
 </html>
